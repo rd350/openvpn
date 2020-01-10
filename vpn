@@ -1,0 +1,233 @@
+#!/usr/bin/env python
+
+"""
+VPN script to Generate, archive, generate-from-csr, renew-crt
+
+Deepak Raju <deepak.raju@catalyst.net.nz>
+"""
+
+import argparse
+import re
+import sys
+import subprocess
+import fileinput
+import os
+import pexpect
+import glob
+import shlex
+
+path = '/var/easy-rsa/'
+keys = '/var/easy-rsa/keys/'
+arc = '/var/easy-rsa/archive/'
+tmp = '/opt/catalyst/vpn-cert/'
+
+
+class Vpn():
+
+    def __init__(self, username):
+        self.username = username
+
+    def generate(self):
+        """
+        Generate certificates
+        """
+        self.email = self.username+'@catalyst.net.nz'
+        self._verify()
+        self._source()
+        self._build_key()
+        self._edit_ovpn()
+        self._tar()
+        self._cleanup()
+
+    def generate_from_csr(self):
+        """
+        Generate from csr
+        """
+        self._verify()
+        self._source()
+        self._build_key_from_csr()
+        self._edit_ovpn()
+        self._tar_for_csr()
+        self._cleanup()
+
+    def _verify(self):
+        """
+        Verify if username already exists
+        """
+        os.chdir(keys)
+
+        for file in glob.glob(self.username+'.crt'):
+            if file:
+                print("------\nUsername already exists.\n You may choose to add a suffix like _phone and such")
+                sys.exit(0)
+
+    def _source(self):
+        """
+        Source the easy-rsa env
+        """
+        try:
+            command = shlex.split("env -i bash -c 'source /var/easy-rsa/vars && env'")
+            proc = subprocess.Popen(command, stdout=subprocess.PIPE)
+            for line in proc.stdout:
+                (key, _, value) = line.partition("=")
+                os.environ[key]= value.strip('\n')
+            proc.communicate()
+
+        except subprocess.CalledProcessError as e:
+            print("--------------------------------------------\nSomething went wrong running 'source /var/easy-rsa/vars'")
+
+    def _build_key_from_csr(self):
+        """
+        Ensure .csr file exists and run the script
+        """
+        os.chdir(keys)
+
+        exists = os.path.isfile(self.username+'.csr')
+
+        if not exists:
+            print self.username+".csr not found.\nMake sure username is the same as in their personal WR. Else rename it to "+self.username+".csr and move the file to "+keys
+            sys.exit(0)
+        else:
+            child = pexpect.spawn('/bin/sh ' + path+'build-key-from-csr ' + self.username)
+            child.sendline('yes')
+            child.sendline('yes')
+            child.interact()
+            print("--------------------\nKey build from csr complete. Find the csr file in "+tmp)
+
+    def _build_key(self):
+        """
+        Run the build-key script to generate certs and user input
+        """
+        try:
+
+            child = pexpect.spawn('/bin/sh ' + path+'build-key ' + self.username)
+            child.sendline('')
+            child.sendline('')
+            child.sendline('')
+            child.sendline('')
+            child.sendline('')
+            child.sendline(self.username)
+            child.sendline(self.email)
+            child.sendline('')
+            child.sendline('')
+            child.sendline('yes')
+            child.sendline('yes')
+            child.interact()
+
+        except pexpect.ExceptionPexpect:
+            print ("Key build not successful")
+
+    def _edit_ovpn(self):
+         """
+         edit the ovpn file with username
+         """
+         os.chdir(tmp)
+
+         filename = 'Catalyst.ovpn'
+
+         replace_cert = 'cert ' + self.username + '.crt'
+         replace_key = 'key ' + self.username + '.key'
+
+         for line in fileinput.input(filename, inplace=True, backup='.bak'):
+
+             line = re.sub("cert.*", replace_cert, line.rstrip())
+             line = re.sub("^key.*", replace_key, line.strip())
+
+             print (line)
+
+    def _tar(self):
+        """
+        Copy files to tmp dir and tar files
+        """
+        try:
+            subprocess.Popen(['cp', keys+self.username+'.crt', keys+self.username+'.key', keys+self.username+'.csr', tmp], shell=False, stderr=subprocess.PIPE)
+            subprocess.check_output(['tar', 'zcvf', self.username + '.tgz', self.username + '.crt', self.username + '.key', self.username + '.csr', 'ta.key', 'ca.crt', 'Catalyst.ovpn'], shell=False, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            print("----------------------------------------------------------\nCould not find keys.")
+
+    def _tar_for_csr(self):
+        """
+        Copy certs to tmp dir and tar files without the .key file
+        """
+        try:
+            subprocess.Popen(['cp', keys+self.username+'.crt', keys+self.username+'.csr', tmp], shell=False, stderr=subprocess.PIPE)
+            subprocess.check_output(['tar', 'zcvf', self.username + '.tgz', self.username + '.crt', self.username + '.csr', 'ta.key', 'ca.crt', 'Catalyst.ovpn'], shell=False, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            print("----------------------------------------------------------\nCould not find keys.")
+
+    def _cleanup(self):
+        """
+        Cleanup keys from tmp dir
+        """
+        try:
+            subprocess.Popen(['rm', tmp+self.username+'.crt', tmp+self.username+'.key', tmp+self.username+'.csr'], shell=False, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            print("rm could not find the files to cleanup" + e.output)
+
+    def renew_crt(self):
+        """
+        Revoke crt and generate a new one
+        """
+        exists = os.path.isfile(keys+self.username+'.crt')
+
+        if not exists:
+            print self.username+".crt not found in "+keys
+        else    :
+            try:
+                subprocess.Popen(['/bin/sh ' + path+'revoke-crt ' + self.username+'.crt'], shell=True, stderr=subprocess.PIPE)
+                subprocess.check_output(['mv', keys+self.username+'.crt', arc], stderr=subprocess.PIPE)
+                print ("-------------------\nRevoked and moved .crt file to archive folder\n")
+                print ("Building crt....\n")
+
+                self._build_key_from_csr()
+
+                subprocess.Popen(['cp', keys+self.username+'.crt', tmp], shell=False, stderr=subprocess.PIPE)
+            except subprocess.CalledProcessError as e:
+                print("--------------------\nSomething went wrong")
+
+
+    def archive(self):
+        """
+        Revoke keys and move them to archive folder
+        """
+        os.chdir(keys)
+
+        try:
+            subprocess.Popen(['/bin/bash', path+'revoke-full '+self.username], stderr=subprocess.PIPE)
+            subprocess.check_output(['mv', keys+self.username+'.crt', keys+self.username+'.key', keys+self.username+'.csr', arc], stderr=subprocess.PIPE)
+            print("Keys archived")
+
+        except subprocess.CalledProcessError as e:
+            print("Keys not found for user")
+
+        matches = [file for file in glob.glob(self.username+'*.key')]
+
+        if matches:
+            print "----------------\nUser may have additional certificates - "
+            for file in matches:
+                print(os.path.splitext(file)[0])
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('check', choices=('generate', 'revoke-full', 'generate-from-csr', 'renew-crt'), help='Generate - build-key, revoke-full, generate-from-csr or renew-crt - Revokes crt and builds a new one')
+    parser.add_argument('username', action='store', help='enter username')
+    args = parser.parse_args()
+
+    checker = Vpn(args.username)
+
+    if args.check == 'generate':
+       checker.generate()
+    elif args.check == 'revoke-full':
+       checker.archive()
+    elif args.check == 'generate-from-csr':
+        checker.generate_from_csr()
+    elif args.check == 'renew-crt':
+        checker.renew_crt()
+    else:
+        raise NotImplementedError("no check matching '%s'" % args.check)
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
