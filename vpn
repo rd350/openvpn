@@ -58,7 +58,7 @@ class Vpn():
 
         for file in glob.glob(self.username+'.crt'):
             if file:
-                print("------\nUsername already exists.\n You may choose to add a suffix like _phone and such")
+                print("------\nUsername already exists")
                 sys.exit(0)
 
     def _source(self):
@@ -74,7 +74,7 @@ class Vpn():
             proc.communicate()
 
         except subprocess.CalledProcessError as e:
-            print("--------------------------------------------\nSomething went wrong running 'source /var/easy-rsa/vars'")
+            print("Something went wrong running 'source /var/easy-rsa/vars'")
 
     def _build_key_from_csr(self):
         """
@@ -85,7 +85,7 @@ class Vpn():
         exists = os.path.isfile(self.username+'.csr')
 
         if not exists:
-            print self.username+".csr not found.\nMake sure username is the same as in their personal WR. Else rename it to "+self.username+".csr and move the file to "+keys
+            print self.username+".csr not found"
             sys.exit(0)
         else:
             child = pexpect.spawn('/bin/sh ' + path+'build-key-from-csr ' + self.username)
@@ -143,7 +143,7 @@ class Vpn():
             subprocess.Popen(['cp', keys+self.username+'.crt', keys+self.username+'.key', keys+self.username+'.csr', tmp], shell=False, stderr=subprocess.PIPE)
             subprocess.check_output(['tar', 'zcvf', self.username + '.tgz', self.username + '.crt', self.username + '.key', self.username + '.csr', 'ta.key', 'ca.crt', 'Catalyst.ovpn'], shell=False, stderr=subprocess.PIPE)
         except subprocess.CalledProcessError as e:
-            print("----------------------------------------------------------\nCould not find keys.")
+            print("Could not find keys.")
 
     def _tar_for_csr(self):
         """
@@ -153,7 +153,7 @@ class Vpn():
             subprocess.Popen(['cp', keys+self.username+'.crt', keys+self.username+'.csr', tmp], shell=False, stderr=subprocess.PIPE)
             subprocess.check_output(['tar', 'zcvf', self.username + '.tgz', self.username + '.crt', self.username + '.csr', 'ta.key', 'ca.crt', 'Catalyst.ovpn'], shell=False, stderr=subprocess.PIPE)
         except subprocess.CalledProcessError as e:
-            print("----------------------------------------------------------\nCould not find keys.")
+            print("Could not find keys.")
 
     def _cleanup(self):
         """
@@ -176,14 +176,14 @@ class Vpn():
             try:
                 subprocess.Popen(['/bin/sh ' + path+'revoke-crt ' + self.username+'.crt'], shell=True, stderr=subprocess.PIPE)
                 subprocess.check_output(['mv', keys+self.username+'.crt', arc], stderr=subprocess.PIPE)
-                print ("-------------------\nRevoked and moved .crt file to archive folder\n")
+                print ("Revoked and moved .crt file to archive folder\n")
                 print ("Building crt....\n")
 
                 self._build_key_from_csr()
 
                 subprocess.Popen(['cp', keys+self.username+'.crt', tmp], shell=False, stderr=subprocess.PIPE)
             except subprocess.CalledProcessError as e:
-                print("--------------------\nSomething went wrong")
+                print("Something went wrong")
 
 
     def archive(self):
@@ -203,7 +203,7 @@ class Vpn():
         matches = [file for file in glob.glob(self.username+'*.key')]
 
         if matches:
-            print "----------------\nUser may have additional certificates - "
+            print "User may have additional certificates - "
             for file in matches:
                 print(os.path.splitext(file)[0])
 
