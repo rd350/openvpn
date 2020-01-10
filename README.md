@@ -1,5 +1,5 @@
 # openvpn
-Python script to automate key generation, archival, generate from csr and renew crt openvpn keys.
+Python script to create and archive openvpn keys.
 
 ****DO THIS BEFORE ****
 
@@ -26,3 +26,5 @@ Make sure you place the client .csr file in /var/easy-rsa/keys
 ./vpn renew-crt
 
 User crt will be revoked and moved to the archive folder (Other certificates remain) and a new csr will be built. The renewed .crt file will be in /opt/catalyst/vpn-cert.
+
+### works with python 2.7 ###
