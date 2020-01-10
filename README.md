@@ -2,9 +2,10 @@
 Python script to automate key generation, archival, generate from csr and renew crt openvpn keys.
 
 ****DO THIS BEFORE ****
-Create  a folder /opt/catalyst/vpn-cert 
-mv ca.crt ta.key to /opt/catalyst/vpn-cert
-Get .ovpn file, rename it to Catalyst.ovpn and mv to above dir
+
+ - Create  a folder /opt/catalyst/vpn-cert 
+ - mv ca.crt ta.key to /opt/catalyst/vpn-cert
+ - Get .ovpn file, rename it to Catalyst.ovpn and mv to above dir
 
 1. Build keys
 ./vpn generate <username>
