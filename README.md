@@ -8,12 +8,12 @@ Python script to automate key generation, archival, generate from csr and renew 
  - Get .ovpn file, rename it to Catalyst.ovpn and mv to above dir
 
 1. Build keys
-./vpn generate <username>
+./vpn generate username
 
 If the script runs successfully, you will get  a tar file in /opt/catalyst/vpn-cert. Download that and send it to the user.
 
 2. Archive keys
-./vpn revoke-full <username>
+./vpn revoke-full username
 
 Revokes full access and moves keys to the archive dir.
 
