@@ -31,7 +31,7 @@ class Vpn():
         """
         Generate certificates
         """
-        self.email = self.username+'@catalyst.net.nz'
+        self.email = self.username+'@domain.com'
         self._verify()
         self._source()
         self._build_key()
